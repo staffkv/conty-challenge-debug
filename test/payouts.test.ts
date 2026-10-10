@@ -66,6 +66,21 @@ describe("aprovação da entrega", () => {
     expect(body.ledger).toHaveLength(1);
   });
 
+  it("não credita de novo quando a chave reenviada traz caractere invisível", async () => {
+    const payload = {
+      mission_id: "msn_2044",
+      approved_at: "2026-03-12T21:05:00.000Z",
+      idempotency_key: "pay_7c1",
+    };
+    expect((await postJson(app, "/approvals", payload)).status).toBe(201);
+    const retry = await postJson(app, "/approvals", { ...payload, idempotency_key: "pay_7c1\u200B" });
+    expect(retry.status).toBe(200);
+    const mission = await app.request("/missions/msn_2044");
+    const body = (await mission.json()) as { ledger: Array<{ amount_brl: number }> };
+    expect(body.ledger).toHaveLength(1);
+    expect(body.ledger[0]?.amount_brl).toBe(80);
+  });
+
   it("aceita a mesma chave uma única vez", async () => {
     const payload = {
       mission_id: "msn_2044",
